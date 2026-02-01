@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VideoBlur Editor Pro - v2</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .blur-overlay {
+            border: 2px dashed #3b82f6;
+            background: rgba(59, 130, 246, 0.1);
+            cursor: move;
+            position: absolute;
+            z-index: 40;
+        }
+        .resize-handle {
+            width: 14px;
+            height: 14px;
+            background: #3b82f6;
+            position: absolute;
+            bottom: -7px;
+            right: -7px;
+            cursor: nwse-resize;
+            border-radius: 2px;
+            border: 2px solid white;
+        }
+        #video-container {
+            position: relative;
+            display: inline-block;
+            max-width: 100%;
+            background: #000;
+            user-select: none;
+        }
+        canvas {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white min-h-screen font-sans">
+
+    <div class="container mx-auto px-4 py-8">
+        <header class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-blue-500 mb-2">VideoBlur Pro</h1>
+            <p class="text-gray-400">Exportación robusta y difuminado por contexto (Inpainting)</p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div class="lg:col-span-2 bg-gray-800 p-6 rounded-2xl shadow-xl">
+                <div class="flex flex-col items-center">
+                    <div id="drop-zone" class="w-full h-80 border-2 border-dashed border-gray-600 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-blue-500 transition-colors mb-4">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 text-gray-500 mb-4" fill="none" viewbox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                        </svg>
+                        <p class="text-xl font-medium">Arrastra tu video aquí</p>
+                        <p class="text-gray-500 text-sm mt-2">Soporta MP4, WebM, MOV</p>
+                        <input type="file" id="video-input" class="hidden" accept="video/*">
+                    </div>
+
+                    <div id="editor-ui" class="hidden w-full">
+                        <div id="video-container" class="rounded-lg mb-6 shadow-2xl overflow-hidden">
+                            <canvas id="main-canvas"></canvas>
+                            <div id="blur-box" class="blur-overlay hidden">
+                                <div class="resize-handle"></div>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center justify-between bg-gray-700/50 p-4 rounded-xl">
+                            <div class="flex items-center gap-4">
+                                <button id="btn-play-pause" class="bg-blue-600 hover:bg-blue-700 p-3 rounded-full transition-all active:scale-90">
+                                    <svg id="icon-play" class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path d="M4.5 17.5L17.5 10L4.5 2.5V17.5Z"/></svg>
+                                    <svg id="icon-pause" class="w-6 h-6 hidden" fill="currentColor" viewBox="0 0 20 20"><path d="M5 4H8V16H5V4ZM12 4H15V16H12V4Z"/></svg>
+                                </button>
+                                <div class="text-sm font-mono bg-gray-900 px-3 py-1 rounded border border-gray-600">
+                                    <span id="current-time">00:00</span> / <span id="total-time">00:00</span>
+                                </div>
+                            </div>
+                            <div class="text-xs text-gray-400">Usa el mouse para mover y escalar el área de difuminado</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-gray-800 p-6 rounded-2xl shadow-xl space-y-6">
+                <!-- Herramienta de Difuminado -->
+                <div class="space-y-4">
+                    <h3 class="text-lg font-semibold flex items-center gap-2 border-b border-gray-700 pb-2">
+                        <span class="w-2 h-6 bg-blue-500 rounded"></span>
+                        Eliminador de Logos
+                    </h3>
+                    <div class="space-y-3">
+                        <button id="toggle-blur" class="w-full py-2 bg-gray-700 hover:bg-gray-600 rounded-lg font-medium transition flex items-center justify-center gap-2">
+                            <span>Habilitar Máscara</span>
+                        </button>
+                        <div id="blur-controls" class="hidden space-y-4 animate-fade-in">
+                            <div>
+                                <label class="text-xs text-gray-400 flex justify-between">Intensidad del Blur <span id="blur-intensity-val">15px</span></label>
+                                <input type="range" id="blur-intensity" min="0" max="60" value="15" class="w-full accent-blue-500">
+                            </div>
+                            <div class="bg-blue-900/20 p-3 rounded text-[11px] text-blue-300 border border-blue-800/50">
+                                <b>Modo Contextual Activo:</b> Se utilizan los colores de los bordes externos para rellenar el interior, eliminando el logo original.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Velocidad y Trim -->
+                <div class="space-y-4">
+                    <h3 class="text-lg font-semibold flex items-center gap-2 border-b border-gray-700 pb-2">
+                        <span class="w-2 h-6 bg-green-500 rounded"></span>
+                        Ajustes de Tiempo
+                    </h3>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="col-span-2">
+                            <label class="text-xs text-gray-400">Velocidad: <span id="speed-val">1.0</span>x</label>
+                            <input type="range" id="speed-control" min="0.5" max="2.0" step="0.1" value="1.0" class="w-full accent-green-500">
+                        </div>
+                        <div>
+                            <label class="text-xs text-gray-400">Inicio (seg)</label>
+                            <input type="number" id="trim-start" value="0" min="0" step="0.1" class="w-full bg-gray-900 border border-gray-700 rounded p-2 text-sm focus:border-green-500 outline-none">
+                        </div>
+                        <div>
+                            <label class="text-xs text-gray-400">Fin (seg)</label>
+                            <input type="number" id="trim-end" value="0" min="0" step="0.1" class="w-full bg-gray-900 border border-gray-700 rounded p-2 text-sm focus:border-green-500 outline-none">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Exportación -->
+                <div class="space-y-4 pt-4">
+                    <h3 class="text-lg font-semibold flex items-center gap-2 border-b border-gray-700 pb-2">
+                        <span class="w-2 h-6 bg-purple-500 rounded"></span>
+                        Calidad de Salida
+                    </h3>
+                    <div class="space-y-4">
+                        <select id="export-res" class="w-full bg-gray-900 border border-gray-700 rounded p-3 text-sm focus:border-purple-500 outline-none">
+                            <option value="720">HD (1280x720)</option>
+                            <option value="1080" selected>Full HD (1920x1080)</option>
+                            <option value="1440">2K (2560x1440)</option>
+                        </select>
+                        <button id="btn-export" class="w-full py-4 bg-blue-600 hover:bg-blue-700 rounded-xl font-bold transition-all shadow-lg active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
+                            <span id="btn-export-text">Exportar Video HD/2K</span>
+                        </button>
+                        <div id="export-progress-container" class="hidden space-y-2">
+                            <div class="w-full bg-gray-900 rounded-full h-2 overflow-hidden">
+                                <div id="export-bar" class="bg-blue-500 h-full w-0 transition-all duration-300"></div>
+                            </div>
+                            <div id="export-status" class="text-center text-xs text-blue-400 font-mono italic">Preparando frames...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="fixed bottom-8 left-1/2 -translate-x-1/2 bg-gray-800 border border-gray-600 px-6 py-3 rounded-full shadow-2xl hidden z-50">
+        <span id="toast-msg"></span>
+    </div>
+
+    <video id="hidden-video" class="hidden" crossorigin="anonymous"></video>
+
+    <script>
+        const videoInput = document.getElementById('video-input');
+        const dropZone = document.getElementById('drop-zone');
+        const video = document.getElementById('hidden-video');
+        const canvas = document.getElementById('main-canvas');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        const blurBox = document.getElementById('blur-box');
+        const editorUi = document.getElementById('editor-ui');
+        
+        let isBlurActive = false;
+        let blurRect = { x: 50, y: 50, w: 150, h: 80 };
+        let isExporting = false;
+        let originalVideoSize = { w: 0, h: 0 };
+
+        dropZone.onclick = () => videoInput.click();
+        
+        videoInput.onchange = (e) => {
+            const file = e.target.files[0];
+            if (file) loadVideo(file);
+        };
+
+        function loadVideo(file) {
+            const url = URL.createObjectURL(file);
+            video.src = url;
+            video.onloadedmetadata = () => {
+                dropZone.classList.add('hidden');
+                editorUi.classList.remove('hidden');
+                
+                originalVideoSize.w = video.videoWidth;
+                originalVideoSize.h = video.videoHeight;
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                
+                document.getElementById('trim-end').value = video.duration.toFixed(1);
+                document.getElementById('total-time').innerText = formatTime(video.duration);
+                
+                requestAnimationFrame(drawLoop);
+                showToast("Video cargado correctamente");
+            };
+        }
+
+        function drawLoop() {
+            if (!isExporting) {
+                renderFrame(ctx, canvas.width, canvas.height);
+                requestAnimationFrame(drawLoop);
+            }
+        }
+
+        /**
+         * Renderiza un frame con la lógica de difuminado contextual
+         */
+        function renderFrame(targetCtx, w, h) {
+            targetCtx.drawImage(video, 0, 0, w, h);
+
+            if (isBlurActive) {
+                // Cálculo de escalas entre UI y Canvas real
+                const uiWidth = canvas.clientWidth;
+                const uiHeight = canvas.clientHeight;
+                const scaleX = w / uiWidth;
+                const scaleY = h / uiHeight;
+                
+                const rX = blurRect.x * scaleX;
+                const rY = blurRect.y * scaleY;
+                const rW = blurRect.w * scaleX;
+                const rH = blurRect.h * scaleY;
+
+                // Margen de seguridad para tomar colores externos (15 píxeles)
+                const margin = 15 * scaleX;
+
+                targetCtx.save();
+                
+                // Técnica de Inpainting Básico:
+                // Tomamos los píxeles de los bordes externos y los estiramos hacia el centro
+                // para sobreescribir completamente lo que hay dentro antes del blur.
+                
+                // 1. Crear clip del área del logo
+                targetCtx.beginPath();
+                targetCtx.rect(rX, rY, rW, rH);
+                targetCtx.clip();
+
+                // 2. Dibujar las áreas de alrededor estiradas para cubrir el centro
+                // Top border
+                targetCtx.drawImage(video, rX, rY - margin, rW, margin, rX, rY, rW, rH / 2);
+                // Bottom border
+                targetCtx.drawImage(video, rX, rY + rH, rW, margin, rX, rY + rH / 2, rW, rH / 2);
+                // Left border
+                targetCtx.drawImage(video, rX - margin, rY, margin, rH, rX, rY, rW / 2, rH);
+                // Right border
+                targetCtx.drawImage(video, rX + rW, rY, margin, rH, rX + rW / 2, rY, rW / 2, rH);
+
+                // 3. Aplicar Blur sobre ese "parche" generado
+                const intensity = document.getElementById('blur-intensity').value;
+                targetCtx.filter = `blur(${intensity}px)`;
+                // Redibujamos solo el área parchada para suavizar los bordes del estiramiento
+                targetCtx.drawImage(canvas, rX, rY, rW, rH, rX, rY, rW, rH);
+                
+                targetCtx.restore();
+            }
+        }
+
+        // Controles de Reproducción
+        const btnPlayPause = document.getElementById('btn-play-pause');
+        const iconPlay = document.getElementById('icon-play');
+        const iconPause = document.getElementById('icon-pause');
+        const currentTimeDisplay = document.getElementById('current-time');
+
+        btnPlayPause.onclick = () => {
+            if (video.paused) {
+                const start = parseFloat(document.getElementById('trim-start').value);
+                if (video.currentTime < start) video.currentTime = start;
+                video.play();
+                iconPlay.classList.add('hidden');
+                iconPause.classList.remove('hidden');
+            } else {
+                video.pause();
+                iconPlay.classList.remove('hidden');
+                iconPause.classList.add('hidden');
+            }
+        };
+
+        video.ontimeupdate = () => {
+            const end = parseFloat(document.getElementById('trim-end').value);
+            if (video.currentTime >= end) {
+                video.pause();
+                video.currentTime = parseFloat(document.getElementById('trim-start').value);
+                iconPlay.classList.remove('hidden');
+                iconPause.classList.add('hidden');
+            }
+            currentTimeDisplay.innerText = formatTime(video.currentTime);
+        };
+
+        function formatTime(seconds) {
+            const m = Math.floor(seconds / 60);
+            const s = Math.floor(seconds % 60);
+            return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        }
+
+        // Blur Box Logic
+        const toggleBlur = document.getElementById('toggle-blur');
+        toggleBlur.onclick = () => {
+            isBlurActive = !isBlurActive;
+            if (isBlurActive) {
+                blurBox.classList.remove('hidden');
+                document.getElementById('blur-controls').classList.remove('hidden');
+                toggleBlur.innerText = "Quitar Máscara";
+                toggleBlur.classList.replace('bg-gray-700', 'bg-blue-600');
+                updateBlurBoxStyle();
+            } else {
+                blurBox.classList.add('hidden');
+                document.getElementById('blur-controls').classList.add('hidden');
+                toggleBlur.innerText = "Habilitar Máscara";
+                toggleBlur.classList.replace('bg-blue-600', 'bg-gray-700');
+            }
+        };
+
+        function updateBlurBoxStyle() {
+            blurBox.style.left = blurRect.x + 'px';
+            blurBox.style.top = blurRect.y + 'px';
+            blurBox.style.width = blurRect.w + 'px';
+            blurBox.style.height = blurRect.h + 'px';
+        }
+
+        // Mouse Events para mover/escalar
+        let dragging = false, resizing = false, startX, startY;
+        blurBox.onmousedown = (e) => {
+            if (e.target.className === 'resize-handle') resizing = true;
+            else dragging = true;
+            startX = e.clientX; startY = e.clientY;
+            e.preventDefault();
+        };
+
+        window.onmousemove = (e) => {
+            if (!dragging && !resizing) return;
+            const dx = e.clientX - startX;
+            const dy = e.clientY - startY;
+            if (dragging) { blurRect.x += dx; blurRect.y += dy; }
+            else if (resizing) { blurRect.w += dx; blurRect.h += dy; }
+            startX = e.clientX; startY = e.clientY;
+            updateBlurBoxStyle();
+        };
+
+        window.onmouseup = () => { dragging = false; resizing = false; };
+
+        // EXPORTACIÓN ROBUSTA (Sincronizada por frames)
+        const btnExport = document.getElementById('btn-export');
+        const exportStatus = document.getElementById('export-status');
+        const exportBar = document.getElementById('export-bar');
+        const exportProgressContainer = document.getElementById('export-progress-container');
+
+        btnExport.onclick = async () => {
+            if (isExporting) return;
+            isExporting = true;
+            btnExport.disabled = true;
+            exportProgressContainer.classList.remove('hidden');
+            
+            const resHeight = parseInt(document.getElementById('export-res').value);
+            const aspect = video.videoWidth / video.videoHeight;
+            const resWidth = Math.round(resHeight * aspect);
+            
+            const exportCanvas = document.createElement('canvas');
+            exportCanvas.width = resWidth;
+            exportCanvas.height = resHeight;
+            const exCtx = exportCanvas.getContext('2d', { alpha: false });
+
+            const start = parseFloat(document.getElementById('trim-start').value);
+            const end = parseFloat(document.getElementById('trim-end').value);
+            const fps = 30;
+            const frameTime = 1 / fps;
+            
+            video.pause();
+            video.currentTime = start;
+
+            const stream = exportCanvas.captureStream(fps);
+            const recorder = new MediaRecorder(stream, { 
+                mimeType: 'video/webm;codecs=vp9', 
+                bitsPerSecond: resHeight > 1080 ? 12000000 : 8000000 
+            });
+            
+            const chunks = [];
+            recorder.ondataavailable = e => chunks.push(e.data);
+            recorder.onstop = () => {
+                const blob = new Blob(chunks, { type: 'video/webm' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `video_editado_${resHeight}p.webm`;
+                a.click();
+                
+                isExporting = false;
+                btnExport.disabled = false;
+                exportProgressContainer.classList.add('hidden');
+                showToast("Exportación completada con éxito");
+                requestAnimationFrame(drawLoop);
+            };
+
+            recorder.start();
+
+            // Bucle robusto basado en el evento 'seeked' para evitar congelamientos
+            let currentExportTime = start;
+            
+            const processNextFrame = async () => {
+                if (currentExportTime >= end) {
+                    recorder.stop();
+                    return;
+                }
+
+                // Esperamos a que el video realmente se mueva al tiempo solicitado
+                await new Promise(resolve => {
+                    const onSeeked = () => {
+                        video.removeEventListener('seeked', onSeeked);
+                        resolve();
+                    };
+                    video.addEventListener('seeked', onSeeked);
+                    video.currentTime = currentExportTime;
+                });
+
+                // Dibujamos el frame en el canvas de alta resolución
+                renderFrame(exCtx, resWidth, resHeight);
+                
+                // Actualizar progreso
+                const progress = ((currentExportTime - start) / (end - start)) * 100;
+                exportBar.style.width = `${progress}%`;
+                exportStatus.innerText = `Procesando: ${Math.round(progress)}% (${formatTime(currentExportTime)})`;
+
+                currentExportTime += frameTime;
+                // Pequeño delay para no saturar el hilo de renderizado del navegador
+                setTimeout(processNextFrame, 10);
+            };
+
+            processNextFrame();
+        };
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toast-msg').innerText = msg;
+            toast.classList.remove('hidden');
+            setTimeout(() => toast.classList.add('hidden'), 3000);
+        }
+
+        document.getElementById('blur-intensity').oninput = (e) => {
+            document.getElementById('blur-intensity-val').innerText = e.target.value + 'px';
+        };
+        
+        document.getElementById('speed-control').oninput = (e) => {
+            const val = parseFloat(e.target.value);
+            video.playbackRate = val;
+            document.getElementById('speed-val').innerText = val.toFixed(1);
+        };
+    </script>
+</body>
+</html>
