@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VideoBlur Editor Pro - v4</title>
+    <title>VideoBlur Editor Pro - v4.1 (Fix Posición)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         .blur-overlay {
@@ -12,6 +12,7 @@
             cursor: move;
             position: absolute;
             z-index: 40;
+            box-sizing: border-box;
         }
         .resize-handle {
             width: 18px;
@@ -27,20 +28,15 @@
         }
         #video-container {
             position: relative;
-            display: flex;
-            align-items: center;
-            justify-content: center;
             background: #000;
             user-select: none;
-            overflow: hidden;
-            width: 100%;
-            height: 100%;
+            /* El tamaño se ajustará por JS para que coincida exactamente con el canvas */
         }
         canvas {
-            max-width: 100%;
-            max-height: 100%;
+            display: block;
+            width: 100%;
+            height: 100%;
             object-fit: contain;
-            background: #000;
         }
         .custom-scroll::-webkit-scrollbar {
             width: 6px;
@@ -63,7 +59,7 @@
                 <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
                     <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 </div>
-                <h1 class="text-xl font-bold tracking-tight">VideoBlur <span class="text-blue-500 text-sm font-normal">v4 Pro</span></h1>
+                <h1 class="text-xl font-bold tracking-tight">VideoBlur <span class="text-blue-500 text-sm font-normal">v4.1 Pro</span></h1>
             </div>
             <div id="export-info" class="hidden items-center gap-4">
                 <div class="text-right">
@@ -93,7 +89,7 @@
                 </div>
 
                 <div id="editor-ui" class="hidden h-full flex flex-col">
-                    <div class="flex-1 relative overflow-hidden flex items-center justify-center p-4">
+                    <div class="flex-1 relative overflow-hidden flex items-center justify-center p-4" id="preview-area">
                         <div id="video-container">
                             <canvas id="main-canvas"></canvas>
                             <div id="blur-box" class="blur-overlay hidden">
@@ -140,9 +136,9 @@
                                 <div>
                                     <div class="flex justify-between text-[10px] mb-2 text-gray-400 font-bold">
                                         <span>SUAVIDAD DEL CLON</span>
-                                        <span id="blur-intensity-val">20px</span>
+                                        <span id="blur-intensity-val">25px</span>
                                     </div>
-                                    <input type="range" id="blur-intensity" min="0" max="100" value="20" class="w-full accent-blue-500">
+                                    <input type="range" id="blur-intensity" min="0" max="100" value="25" class="w-full accent-blue-500">
                                 </div>
                                 <div class="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20 text-[10px] text-blue-400 leading-relaxed italic">
                                     Esta técnica toma píxeles del exterior del margen seleccionado para rellenar el interior, eliminando el logo y fundiéndolo con el fondo.
@@ -211,6 +207,7 @@
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
         const blurBox = document.getElementById('blur-box');
         const editorUi = document.getElementById('editor-ui');
+        const videoContainer = document.getElementById('video-container');
         
         let isBlurActive = false;
         let blurRect = { x: 40, y: 40, w: 140, h: 70 };
@@ -239,9 +236,36 @@
                 document.getElementById('trim-end').value = video.duration.toFixed(1);
                 document.getElementById('total-time').innerText = formatTimeDetailed(video.duration);
                 
+                // Ajustar el contenedor al aspecto del video
+                adjustContainerSize();
+                window.addEventListener('resize', adjustContainerSize);
+                
                 requestAnimationFrame(drawLoop);
                 showToast("Video importado con éxito");
             };
+        }
+
+        // Función crítica: Ajusta el contenedor del overlay para que coincida EXACTAMENTE con el área del video
+        function adjustContainerSize() {
+            if (!video.videoWidth) return;
+            const containerParent = document.getElementById('preview-area');
+            const parentW = containerParent.clientWidth - 32; // padding
+            const parentH = containerParent.clientHeight - 32;
+            const videoRatio = video.videoWidth / video.videoHeight;
+            const parentRatio = parentW / parentH;
+
+            let finalW, finalH;
+            if (videoRatio > parentRatio) {
+                finalW = parentW;
+                finalH = parentW / videoRatio;
+            } else {
+                finalH = parentH;
+                finalW = parentH * videoRatio;
+            }
+
+            videoContainer.style.width = finalW + 'px';
+            videoContainer.style.height = finalH + 'px';
+            updateBlurBoxStyle();
         }
 
         function drawLoop() {
@@ -258,54 +282,43 @@
         }
 
         /**
-         * Renderizado Unificado (Para Vista Previa y Exportación)
-         * Implementa Inpainting Real extrayendo bordes del origen del video
+         * Renderizado Unificado Corregido
          */
         function renderFrame(targetCtx, targetW, targetH, sourceVideo) {
-            // 1. Dibujar el frame base
             targetCtx.drawImage(sourceVideo, 0, 0, targetW, targetH);
 
             if (isBlurActive) {
-                // Relación entre el tamaño del canvas de la UI y el canvas de renderizado real
-                const uiWidth = canvas.clientWidth;
-                const uiHeight = canvas.clientHeight;
+                // Durante la exportación, el targetCtx es el del canvas temporal de exportación
+                // Durante la vista previa, es el canvas principal
+                
+                const uiWidth = videoContainer.clientWidth;
+                const uiHeight = videoContainer.clientHeight;
+                
                 const scaleX = targetW / uiWidth;
                 const scaleY = targetH / uiHeight;
                 
-                // Coordenadas en el canvas de destino
                 const rX = blurRect.x * scaleX;
                 const rY = blurRect.y * scaleY;
                 const rW = blurRect.w * scaleX;
                 const rH = blurRect.h * scaleY;
 
-                // Margen de píxeles externos a usar para el clonado (basado en resolución)
-                const margin = 24 * scaleX;
+                const margin = 30 * scaleX;
 
                 targetCtx.save();
-                
-                // Creamos el área de recorte para no manchar el resto del video
                 targetCtx.beginPath();
                 targetCtx.rect(rX, rY, rW, rH);
                 targetCtx.clip();
 
-                // INPAINTING LOGIC: Extraemos 4 tiras del video original (fuera del área del logo)
-                // y las estiramos hacia el centro del área recortada.
-                
-                // Tira superior hacia abajo
-                targetCtx.drawImage(sourceVideo, rX, rY - margin, rW, margin, rX, rY, rW, rH / 2);
-                // Tira inferior hacia arriba
-                targetCtx.drawImage(sourceVideo, rX, rY + rH, rW, margin, rX, rY + rH / 2, rW, rH / 2);
-                // Tira izquierda hacia derecha
-                targetCtx.drawImage(sourceVideo, rX - margin, rY, margin, rH, rX, rY, rW / 2, rH);
-                // Tira derecha hacia izquierda
-                targetCtx.drawImage(sourceVideo, rX + rW, rY, margin, rH, rX + rW / 2, rY, rW / 2, rH);
+                // Inpainting Logic: Extraemos de los bordes del video original
+                targetCtx.drawImage(sourceVideo, rX, Math.max(0, rY - margin), rW, margin, rX, rY, rW, rH / 2);
+                targetCtx.drawImage(sourceVideo, rX, Math.min(targetH - margin, rY + rH), rW, margin, rX, rY + rH / 2, rW, rH / 2);
+                targetCtx.drawImage(sourceVideo, Math.max(0, rX - margin), rY, margin, rH, rX, rY, rW / 2, rH);
+                targetCtx.drawImage(sourceVideo, Math.min(targetW - margin, rX + rW), rY, margin, rH, rX + rW / 2, rY, rW / 2, rH);
 
-                // Aplicamos el desenfoque sobre el parche recién creado
                 const intensity = document.getElementById('blur-intensity').value;
                 if (intensity > 0) {
-                    targetCtx.filter = `blur(${intensity}px)`;
-                    // Redibujamos lo que acabamos de parchear para suavizarlo
-                    // Usamos el propio canvas como fuente para capturar el "parche"
+                    targetCtx.filter = `blur(${intensity * scaleX / 2}px)`;
+                    // Usamos el propio canvas de destino para suavizar el parche ya dibujado
                     targetCtx.drawImage(targetCtx.canvas, rX, rY, rW, rH, rX, rY, rW, rH);
                 }
                 
@@ -377,6 +390,7 @@
             blurBox.style.height = blurRect.h + 'px';
         }
 
+        // Movimiento y Redimensionamiento
         let dragging = false, resizing = false, startX, startY;
         blurBox.onmousedown = (e) => {
             if (e.target.className === 'resize-handle') resizing = true;
@@ -389,14 +403,20 @@
             if (!dragging && !resizing) return;
             const dx = e.clientX - startX;
             const dy = e.clientY - startY;
-            if (dragging) { blurRect.x += dx; blurRect.y += dy; }
-            else if (resizing) { blurRect.w = Math.max(30, blurRect.w + dx); blurRect.h = Math.max(30, blurRect.h + dy); }
+            
+            if (dragging) { 
+                blurRect.x = Math.max(0, Math.min(videoContainer.clientWidth - blurRect.w, blurRect.x + dx));
+                blurRect.y = Math.max(0, Math.min(videoContainer.clientHeight - blurRect.h, blurRect.y + dy));
+            } else if (resizing) { 
+                blurRect.w = Math.max(30, Math.min(videoContainer.clientWidth - blurRect.x, blurRect.w + dx));
+                blurRect.h = Math.max(30, Math.min(videoContainer.clientHeight - blurRect.y, blurRect.h + dy));
+            }
             startX = e.clientX; startY = e.clientY;
             updateBlurBoxStyle();
         };
         window.onmouseup = () => { dragging = false; resizing = false; };
 
-        // EXPORTACIÓN MP4 / 2K
+        // EXPORTACIÓN MP4
         const btnExport = document.getElementById('btn-export');
         const exportInfo = document.getElementById('export-info');
         const exportStatusText = document.getElementById('export-status-text');
@@ -425,7 +445,6 @@
             video.pause();
             video.currentTime = start;
 
-            // MP4 Priority
             let mimeType = 'video/mp4;codecs=h264';
             if (!MediaRecorder.isTypeSupported(mimeType)) {
                 mimeType = 'video/webm;codecs=vp9';
@@ -434,7 +453,7 @@
             const stream = exportCanvas.captureStream(fps);
             const recorder = new MediaRecorder(stream, { 
                 mimeType: mimeType, 
-                bitsPerSecond: resHeight >= 1080 ? 18000000 : 10000000 
+                bitsPerSecond: resHeight >= 1080 ? 20000000 : 10000000 
             });
             
             const chunks = [];
@@ -445,36 +464,34 @@
                 const a = document.createElement('a');
                 a.href = url;
                 const ext = mimeType.includes('mp4') ? 'mp4' : 'webm';
-                a.download = `video_editado_${resHeight}p.${ext}`;
+                a.download = `video_final_${resHeight}p.${ext}`;
                 a.click();
                 
                 isExporting = false;
                 btnExport.disabled = false;
                 exportInfo.classList.replace('flex', 'hidden');
-                showToast("Video generado!");
+                showToast("Generado con éxito!");
                 requestAnimationFrame(drawLoop);
             };
 
             recorder.start();
 
             let currentExportTime = start;
-            
             const processNextFrame = async () => {
                 if (currentExportTime >= end) {
-                    setTimeout(() => recorder.stop(), 800); // Buffer extra final
+                    setTimeout(() => recorder.stop(), 1000);
                     return;
                 }
 
                 await new Promise(resolve => {
                     const onSeeked = () => {
                         video.removeEventListener('seeked', onSeeked);
-                        setTimeout(resolve, 50); // Tiempo para renderizado de hardware
+                        setTimeout(resolve, 60);
                     };
                     video.addEventListener('seeked', onSeeked);
                     video.currentTime = currentExportTime;
                 });
 
-                // Renderizado real sobre el canvas de exportación
                 renderFrame(exCtx, resWidth, resHeight, video);
                 
                 const progress = ((currentExportTime - start) / (end - start)) * 100;
