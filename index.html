@@ -3,523 +3,468 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VideoBlur Editor Pro - v4.1 (Fix Posición)</title>
+    <title>Meta Ads Dashboard & Visor CSV</title>
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons para un diseño moderno -->
+    <script src="https://unpkg.com/lucide@latest"></script>
     <style>
-        .blur-overlay {
-            border: 2px dashed #3b82f6;
-            background: rgba(59, 130, 246, 0.1);
-            cursor: move;
-            position: absolute;
-            z-index: 40;
-            box-sizing: border-box;
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
         }
-        .resize-handle {
-            width: 18px;
-            height: 18px;
-            background: #3b82f6;
-            position: absolute;
-            bottom: -9px;
-            right: -9px;
-            cursor: nwse-resize;
-            border-radius: 50%;
-            border: 2px solid white;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.4);
-        }
-        #video-container {
-            position: relative;
-            background: #000;
-            user-select: none;
-            /* El tamaño se ajustará por JS para que coincida exactamente con el canvas */
-        }
-        canvas {
-            display: block;
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
-        }
-        .custom-scroll::-webkit-scrollbar {
+        .custom-scrollbar::-webkit-scrollbar {
             width: 6px;
+            height: 6px;
         }
-        .custom-scroll::-webkit-scrollbar-track {
-            background: #111827;
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9;
         }
-        .custom-scroll::-webkit-scrollbar-thumb {
-            background: #374151;
-            border-radius: 10px;
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
         }
     </style>
 </head>
-<body class="bg-gray-950 text-white h-screen overflow-hidden font-sans">
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col">
 
-    <div class="flex flex-col h-full">
-        <!-- Header -->
-        <header class="bg-gray-900 border-b border-gray-800 p-4 flex justify-between items-center shrink-0">
+    <!-- Header -->
+    <header class="border-b border-slate-800 bg-slate-950/60 backdrop-blur-md sticky top-0 z-50 px-6 py-4">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
             <div class="flex items-center gap-3">
-                <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <div class="p-2.5 bg-blue-600/10 text-blue-400 rounded-xl border border-blue-500/20">
+                    <i data-lucide="trending-up" class="w-6 h-6"></i>
                 </div>
-                <h1 class="text-xl font-bold tracking-tight">VideoBlur <span class="text-blue-500 text-sm font-normal">v4.1 Pro</span></h1>
-            </div>
-            <div id="export-info" class="hidden items-center gap-4">
-                <div class="text-right">
-                    <p class="text-[10px] text-gray-500 uppercase font-bold" id="export-status-label">Procesando Video</p>
-                    <p class="text-xs text-blue-400 font-mono" id="export-status-text">0%</p>
-                </div>
-                <div class="w-32 bg-gray-800 rounded-full h-1.5">
-                    <div id="export-bar-header" class="bg-blue-500 h-full w-0 transition-all duration-300"></div>
+                <div>
+                    <h1 class="text-xl font-bold tracking-tight text-white flex items-center gap-2">
+                        Meta Ads Manager <span class="text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full font-medium">Activas</span>
+                    </h1>
+                    <p class="text-xs text-slate-400">Analizador de rendimiento de campañas de publicidad</p>
                 </div>
             </div>
-        </header>
+            
+            <!-- Acciones de carga -->
+            <div class="flex items-center gap-3 w-full md:w-auto justify-end">
+                <label class="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg cursor-pointer transition text-sm border border-slate-700">
+                    <i data-lucide="upload-cloud" class="w-4 h-4 text-blue-400"></i>
+                    <span>Cargar nuevo CSV</span>
+                    <input type="file" id="csvFileInput" accept=".csv" class="hidden">
+                </label>
+                <button id="btnReset" class="p-2 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white rounded-lg transition border border-slate-700" title="Restaurar datos de ejemplo">
+                    <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+                </button>
+            </div>
+        </div>
+    </header>
 
-        <main class="flex flex-1 overflow-hidden">
-            <!-- Visor Principal (Izquierda) -->
-            <div class="flex-1 bg-black flex flex-col relative overflow-hidden">
-                <div id="drop-zone" class="absolute inset-0 flex flex-col items-center justify-center cursor-pointer hover:bg-gray-900/40 transition-all z-50">
-                    <div class="p-10 border-2 border-dashed border-gray-700 rounded-3xl flex flex-col items-center gap-4 bg-gray-900/60 backdrop-blur-sm">
-                        <svg class="h-16 w-16 text-blue-500 animate-bounce" fill="none" viewbox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                        </svg>
-                        <div class="text-center">
-                            <p class="text-xl font-bold">Importar Video</p>
-                            <p class="text-gray-500 text-sm mt-1">Suelte el archivo aquí para comenzar</p>
-                        </div>
-                    </div>
-                    <input type="file" id="video-input" class="hidden" accept="video/*">
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 space-y-6">
+        
+        <!-- Alerta informativa de filtros aplicados -->
+        <div class="bg-blue-950/40 border border-blue-500/30 rounded-xl p-4 flex items-start gap-3">
+            <div class="p-1 bg-blue-500/10 text-blue-400 rounded">
+                <i data-lucide="info" class="w-5 h-5"></i>
+            </div>
+            <div class="text-sm text-slate-300">
+                <strong class="text-white">Filtro Inteligente Activo:</strong> Este visor está configurado por defecto para mostrar únicamente las campañas cuyo estado de entrega sea <span class="bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded text-xs font-semibold">active</span> (Campañas Activas). Puedes desactivar esta restricción usando el switch de abajo si deseas auditar el histórico.
+            </div>
+        </div>
+
+        <!-- Tarjetas de Resumen / KPIs -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <!-- Card 1: Campañas Activas -->
+            <div class="bg-slate-950 border border-slate-800 p-5 rounded-2xl relative overflow-hidden group">
+                <div class="absolute right-0 top-0 translate-x-4 -translate-y-4 w-24 h-24 bg-blue-500/5 rounded-full blur-xl group-hover:bg-blue-500/10 transition-all duration-300"></div>
+                <p class="text-xs font-medium text-slate-400 uppercase tracking-wider">Campañas Activas</p>
+                <div class="flex items-baseline gap-2 mt-2">
+                    <span id="kpiActiveCampaigns" class="text-3xl font-bold text-white">-</span>
+                    <span class="text-xs text-emerald-400 font-medium flex items-center gap-0.5">
+                        En curso <span class="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+                    </span>
                 </div>
-
-                <div id="editor-ui" class="hidden h-full flex flex-col">
-                    <div class="flex-1 relative overflow-hidden flex items-center justify-center p-4" id="preview-area">
-                        <div id="video-container">
-                            <canvas id="main-canvas"></canvas>
-                            <div id="blur-box" class="blur-overlay hidden">
-                                <div class="resize-handle"></div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Barra de Tiempo -->
-                    <div class="bg-gray-900/90 border-t border-gray-800 p-4 shrink-0">
-                        <div class="max-w-5xl mx-auto flex items-center gap-6">
-                            <button id="btn-play-pause" class="bg-blue-600 text-white hover:bg-blue-500 p-3 rounded-full transition-all shadow-lg active:scale-90">
-                                <svg id="icon-play" class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path d="M4.5 17.5L17.5 10L4.5 2.5V17.5Z"/></svg>
-                                <svg id="icon-pause" class="w-6 h-6 hidden" fill="currentColor" viewBox="0 0 20 20"><path d="M5 4H8V16H5V4ZM12 4H15V16H12V4Z"/></svg>
-                            </button>
-                            <div class="flex-1">
-                                <div class="flex justify-between text-[10px] font-mono mb-2 text-gray-500 tracking-tighter">
-                                    <span id="current-time">00:00:00</span>
-                                    <span id="total-time">00:00:00</span>
-                                </div>
-                                <div class="relative w-full h-2 bg-gray-800 rounded-full cursor-pointer overflow-hidden" id="timeline-bg">
-                                    <div id="video-progress" class="absolute top-0 left-0 h-full bg-blue-500 w-0"></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                <div class="mt-4 flex items-center gap-1.5 text-xs text-slate-400">
+                    <i data-lucide="layers" class="w-3.5 h-3.5 text-slate-500"></i>
+                    <span>Filtrado por estado de entrega</span>
                 </div>
             </div>
 
-            <!-- Panel de Herramientas (Derecha) -->
-            <aside class="w-80 bg-gray-900 border-l border-gray-800 flex flex-col shrink-0 overflow-y-auto custom-scroll">
-                <div class="p-6 space-y-8">
-                    
-                    <!-- Herramienta de Inpainting -->
-                    <section>
-                        <h3 class="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-4">Eliminación Inteligente</h3>
-                        <div class="bg-gray-800/40 rounded-2xl p-4 space-y-4 border border-gray-800/50">
-                            <button id="toggle-blur" class="w-full py-3 bg-gray-700 hover:bg-blue-600 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" stroke-width="2"/><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" stroke-width="2"/></svg>
-                                Activar Área de Clonado
-                            </button>
-                            
-                            <div id="blur-controls" class="hidden space-y-5 pt-2 animate-in fade-in duration-500">
-                                <div>
-                                    <div class="flex justify-between text-[10px] mb-2 text-gray-400 font-bold">
-                                        <span>SUAVIDAD DEL CLON</span>
-                                        <span id="blur-intensity-val">25px</span>
-                                    </div>
-                                    <input type="range" id="blur-intensity" min="0" max="100" value="25" class="w-full accent-blue-500">
-                                </div>
-                                <div class="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20 text-[10px] text-blue-400 leading-relaxed italic">
-                                    Esta técnica toma píxeles del exterior del margen seleccionado para rellenar el interior, eliminando el logo y fundiéndolo con el fondo.
-                                </div>
-                            </div>
-                        </div>
-                    </section>
-
-                    <!-- Configuración de Tiempo -->
-                    <section>
-                        <h3 class="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-4">Tiempo y Velocidad</h3>
-                        <div class="bg-gray-800/40 rounded-2xl p-4 space-y-5 border border-gray-800/50">
-                            <div>
-                                <div class="flex justify-between text-[10px] mb-2 text-gray-400 font-bold">
-                                    <span>VELOCIDAD</span>
-                                    <span id="speed-val">1.0x</span>
-                                </div>
-                                <input type="range" id="speed-control" min="0.1" max="3.0" step="0.1" value="1.0" class="w-full accent-green-500">
-                            </div>
-                            <div class="grid grid-cols-2 gap-3">
-                                <div>
-                                    <label class="text-[9px] text-gray-500 font-bold block mb-1">PUNTO DE INICIO</label>
-                                    <input type="number" id="trim-start" value="0" step="0.1" class="w-full bg-black border border-gray-700 rounded-lg p-2 text-xs focus:border-blue-500 outline-none">
-                                </div>
-                                <div>
-                                    <label class="text-[9px] text-gray-500 font-bold block mb-1">PUNTO FINAL</label>
-                                    <input type="number" id="trim-end" value="0" step="0.1" class="w-full bg-black border border-gray-700 rounded-lg p-2 text-xs focus:border-blue-500 outline-none">
-                                </div>
-                            </div>
-                        </div>
-                    </section>
-
-                    <!-- Exportación -->
-                    <section>
-                        <h3 class="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-4">Exportar Resultado</h3>
-                        <div class="bg-gray-800/40 rounded-2xl p-4 space-y-4 border border-gray-800/50">
-                            <div>
-                                <label class="text-[9px] text-gray-500 font-bold block mb-2 text-center">FORMATO MP4 / ALTA FIDELIDAD</label>
-                                <select id="export-res" class="w-full bg-black border border-gray-700 rounded-lg p-3 text-xs focus:border-blue-500 outline-none appearance-none cursor-pointer">
-                                    <option value="720">HD (1280 x 720)</option>
-                                    <option value="1080" selected>Full HD (1920 x 1080)</option>
-                                    <option value="1440">Ultra 2K (2560 x 1440)</option>
-                                </select>
-                            </div>
-                            <button id="btn-export" class="w-full py-4 bg-white text-black hover:bg-blue-500 hover:text-white rounded-xl font-black text-xs transition-all shadow-xl active:scale-95 disabled:opacity-20">
-                                GENERAR VIDEO MP4
-                            </button>
-                        </div>
-                    </section>
+            <!-- Card 2: Inversión Total -->
+            <div class="bg-slate-950 border border-slate-800 p-5 rounded-2xl relative overflow-hidden group">
+                <div class="absolute right-0 top-0 translate-x-4 -translate-y-4 w-24 h-24 bg-amber-500/5 rounded-full blur-xl group-hover:bg-amber-500/10 transition-all duration-300"></div>
+                <p class="text-xs font-medium text-slate-400 uppercase tracking-wider">Inversión Total (BOB)</p>
+                <div class="flex items-baseline gap-2 mt-2">
+                    <span id="kpiTotalSpend" class="text-3xl font-bold text-amber-400">-</span>
+                    <span class="text-xs text-slate-400">BOB</span>
                 </div>
-            </aside>
-        </main>
-    </div>
+                <div class="mt-4 flex items-center gap-1.5 text-xs text-slate-400">
+                    <i data-lucide="wallet" class="w-3.5 h-3.5 text-slate-500"></i>
+                    <span id="kpiBudgetInfo">Presupuesto asignado activo</span>
+                </div>
+            </div>
 
-    <div id="toast" class="fixed bottom-28 left-1/2 -translate-x-1/2 bg-blue-600 text-white px-8 py-3 rounded-2xl shadow-2xl hidden z-50 text-xs font-black uppercase tracking-widest animate-bounce">
-        <span id="toast-msg"></span>
-    </div>
+            <!-- Card 3: Contactos Totales -->
+            <div class="bg-slate-950 border border-slate-800 p-5 rounded-2xl relative overflow-hidden group">
+                <div class="absolute right-0 top-0 translate-x-4 -translate-y-4 w-24 h-24 bg-emerald-500/5 rounded-full blur-xl group-hover:bg-emerald-500/10 transition-all duration-300"></div>
+                <p class="text-xs font-medium text-slate-400 uppercase tracking-wider">Contactos Totales (Mensajería)</p>
+                <div class="flex items-baseline gap-2 mt-2">
+                    <span id="kpiTotalMessages" class="text-3xl font-bold text-emerald-400">-</span>
+                    <span class="text-xs text-slate-400">Chats</span>
+                </div>
+                <div class="mt-4 flex items-center gap-1.5 text-xs text-slate-400">
+                    <i data-lucide="message-square" class="w-3.5 h-3.5 text-slate-500"></i>
+                    <span id="kpiNewMessages">Nuevos contactos</span>
+                </div>
+            </div>
 
-    <video id="hidden-video" class="hidden" crossorigin="anonymous" muted></video>
+            <!-- Card 4: Costo Promedio por Resultado -->
+            <div class="bg-slate-950 border border-slate-800 p-5 rounded-2xl relative overflow-hidden group">
+                <div class="absolute right-0 top-0 translate-x-4 -translate-y-4 w-24 h-24 bg-purple-500/5 rounded-full blur-xl group-hover:bg-purple-500/10 transition-all duration-300"></div>
+                <p class="text-xs font-medium text-slate-400 uppercase tracking-wider">Costo por Conversación Promedio</p>
+                <div class="flex items-baseline gap-2 mt-2">
+                    <span id="kpiAvgCpr" class="text-3xl font-bold text-purple-400">-</span>
+                    <span class="text-xs text-slate-400">BOB / chat</span>
+                </div>
+                <div class="mt-4 flex items-center gap-1.5 text-xs text-slate-400">
+                    <i data-lucide="target" class="w-3.5 h-3.5 text-slate-500"></i>
+                    <span>Costo por resultado consolidado</span>
+                </div>
+            </div>
+        </div>
 
+        <!-- Filtros y Búsqueda -->
+        <div class="bg-slate-950 border border-slate-800 p-4 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+            
+            <!-- Buscador por nombre de campaña -->
+            <div class="relative flex-1 max-w-md">
+                <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-500">
+                    <i data-lucide="search" class="w-5 h-5"></i>
+                </span>
+                <input type="text" id="searchInput" placeholder="Buscar por nombre de campaña o anuncio..." class="w-full pl-10 pr-4 py-2 bg-slate-900 border border-slate-800 rounded-xl focus:outline-none focus:border-blue-500 text-slate-200 placeholder-slate-500 text-sm transition">
+            </div>
+
+            <!-- Controles Adicionales -->
+            <div class="flex flex-wrap items-center gap-4">
+                <!-- Toggle de Solo Activas -->
+                <label class="inline-flex items-center cursor-pointer bg-slate-900 px-4 py-2 rounded-xl border border-slate-800 hover:border-slate-700 transition">
+                    <input type="checkbox" id="toggleActiveOnly" class="sr-only peer" checked>
+                    <div class="relative w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
+                    <span class="ms-3 text-sm font-medium text-slate-300 select-none">Solo Campañas Activas</span>
+                </label>
+
+                <!-- Contador de registros cargados -->
+                <span class="text-xs bg-slate-900 border border-slate-800 px-3 py-2 rounded-xl text-slate-400">
+                    Registros: <strong id="visibleCount" class="text-white">0</strong> de <strong id="totalCount" class="text-slate-400">0</strong>
+                </span>
+            </div>
+
+        </div>
+
+        <!-- Tabla de Datos -->
+        <div class="bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden shadow-xl flex flex-col">
+            <div class="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-950/40">
+                <h2 class="text-sm font-semibold tracking-wider text-slate-400 uppercase flex items-center gap-2">
+                    <i data-lucide="table-properties" class="w-4 h-4 text-blue-400"></i>
+                    Lista de Campañas de Meta Ads
+                </h2>
+                <div class="flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                    <span class="text-xs text-slate-400">Verde indica campaña optimizada (&lt; 1 BOB/resultado)</span>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto custom-scrollbar">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-900/60 border-b border-slate-800 text-xs font-semibold tracking-wider text-slate-400 uppercase">
+                            <th class="py-4 px-5">Campaña</th>
+                            <th class="py-4 px-4 text-center">Entrega</th>
+                            <th class="py-4 px-4 text-right">Presupuesto</th>
+                            <th class="py-4 px-4 text-right">Inversión (BOB)</th>
+                            <th class="py-4 px-4 text-right">Impresiones</th>
+                            <th class="py-4 px-4 text-right">Alcance</th>
+                            <th class="py-4 px-4 text-right">Conversaciones Totales</th>
+                            <th class="py-4 px-4 text-right">Nuevos Contactos</th>
+                            <th class="py-4 px-4 text-right">Costo / Resultado</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody" class="divide-y divide-slate-800/50 text-sm">
+                        <!-- Las filas se cargarán dinámicamente aquí -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Vista vacía / No se encuentran resultados -->
+            <div id="noDataView" class="hidden flex-col items-center justify-center p-12 text-center space-y-3">
+                <div class="p-4 bg-slate-900 rounded-full border border-slate-800 text-slate-500">
+                    <i data-lucide="folder-open" class="w-8 h-8"></i>
+                </div>
+                <p class="text-base font-semibold text-slate-300">No se encontraron registros de campañas</p>
+                <p class="text-xs text-slate-500 max-w-md mx-auto">Verifica que el CSV cargado cumpla con el formato indicado o que el filtro de "Solo Campañas Activas" coincida con tus datos.</p>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Footer descriptivo -->
+    <footer class="border-t border-slate-800 bg-slate-950/20 py-6 px-6 mt-12 text-center text-xs text-slate-500 space-y-1">
+        <p>Visor optimizado para exportaciones estándar de Meta Ads Manager.</p>
+        <p>&copy; 2026 Meta Ads Monitor - Visualizador de Rendimiento de Campañas.</p>
+    </footer>
+
+    <!-- Script de lógica -->
     <script>
-        const videoInput = document.getElementById('video-input');
-        const dropZone = document.getElementById('drop-zone');
-        const video = document.getElementById('hidden-video');
-        const canvas = document.getElementById('main-canvas');
-        const ctx = canvas.getContext('2d', { willReadFrequently: true });
-        const blurBox = document.getElementById('blur-box');
-        const editorUi = document.getElementById('editor-ui');
-        const videoContainer = document.getElementById('video-container');
-        
-        let isBlurActive = false;
-        let blurRect = { x: 40, y: 40, w: 140, h: 70 };
-        let isExporting = false;
-        let originalVideoSize = { w: 0, h: 0 };
+        // Datos de ejemplo para que la aplicación muestre información inmediata en la carga inicial
+        const defaultCSVData = `"Inicio del informe","Fin del informe","Nombre de la campaña","Entrega de la campaña",Resultados,"Indicador de resultado","Costo por resultados","Presupuesto del conjunto de anuncios","Tipo de presupuesto del conjunto de anuncios","Importe gastado (BOB)",Impresiones,Alcance,"Contactos de mensajes totales","Nuevos contactos de mensajes",Compras,Finalización,"Configuración de atribución","Costo por compra (BOB)"
+2026-06-10,2026-06-10,"Rosario Alvarez / Santa cruz / 070226",active,23,actions:onsite_conversion.messaging_conversation_started_7d,0.46782609,30,Diario,10.76,2078,1910,23,23,,"En curso","7 días tras clic o 1 día tras visualización",
+2026-06-10,2026-06-10,"Campaña de Prueba / La Paz / 080326",active,15,actions:onsite_conversion.messaging_conversation_started_7d,0.85,50,Diario,12.75,3100,2800,15,12,,"En curso","7 días tras clic",
+2026-06-10,2026-06-10,"Black Friday Liquidación / Cochabamba",inactive,145,actions:onsite_conversion.messaging_conversation_started_7d,1.20,100,Diario,174.00,24000,19500,140,135,12,"Finalizado","7 días tras clic",
+2026-06-10,2026-06-10,"Lanzamiento Nuevo Producto / Bolivia",active,89,actions:onsite_conversion.messaging_conversation_started_7d,0.552,80,Diario,49.12,9800,8900,89,85,,"En curso","7 días tras clic o 1 día tras visualización",`;
 
-        dropZone.onclick = () => videoInput.click();
-        
-        videoInput.onchange = (e) => {
-            const file = e.target.files[0];
-            if (file) loadVideo(file);
-        };
+        let parsedCampaigns = [];
 
-        function loadVideo(file) {
-            const url = URL.createObjectURL(file);
-            video.src = url;
-            video.onloadedmetadata = () => {
-                dropZone.classList.add('hidden');
-                editorUi.classList.remove('hidden');
-                
-                originalVideoSize.w = video.videoWidth;
-                originalVideoSize.h = video.videoHeight;
-                canvas.width = video.videoWidth;
-                canvas.height = video.videoHeight;
-                
-                document.getElementById('trim-end').value = video.duration.toFixed(1);
-                document.getElementById('total-time').innerText = formatTimeDetailed(video.duration);
-                
-                // Ajustar el contenedor al aspecto del video
-                adjustContainerSize();
-                window.addEventListener('resize', adjustContainerSize);
-                
-                requestAnimationFrame(drawLoop);
-                showToast("Video importado con éxito");
-            };
+        // Inicializar iconos de Lucide
+        function initIcons() {
+            lucide.createIcons();
         }
 
-        // Función crítica: Ajusta el contenedor del overlay para que coincida EXACTAMENTE con el área del video
-        function adjustContainerSize() {
-            if (!video.videoWidth) return;
-            const containerParent = document.getElementById('preview-area');
-            const parentW = containerParent.clientWidth - 32; // padding
-            const parentH = containerParent.clientHeight - 32;
-            const videoRatio = video.videoWidth / video.videoHeight;
-            const parentRatio = parentW / parentH;
+        // Función para parsear texto CSV de forma segura considerando comillas
+        function parseCSV(text) {
+            const lines = text.split(/\r?\n/);
+            if (lines.length < 2) return [];
 
-            let finalW, finalH;
-            if (videoRatio > parentRatio) {
-                finalW = parentW;
-                finalH = parentW / videoRatio;
-            } else {
-                finalH = parentH;
-                finalW = parentH * videoRatio;
-            }
-
-            videoContainer.style.width = finalW + 'px';
-            videoContainer.style.height = finalH + 'px';
-            updateBlurBoxStyle();
-        }
-
-        function drawLoop() {
-            if (!isExporting) {
-                renderFrame(ctx, canvas.width, canvas.height, video);
-                
-                const start = parseFloat(document.getElementById('trim-start').value);
-                const end = parseFloat(document.getElementById('trim-end').value);
-                const prog = ((video.currentTime - start) / (end - start)) * 100;
-                document.getElementById('video-progress').style.width = Math.max(0, Math.min(100, prog)) + '%';
-                
-                requestAnimationFrame(drawLoop);
-            }
-        }
-
-        /**
-         * Renderizado Unificado Corregido
-         */
-        function renderFrame(targetCtx, targetW, targetH, sourceVideo) {
-            targetCtx.drawImage(sourceVideo, 0, 0, targetW, targetH);
-
-            if (isBlurActive) {
-                // Durante la exportación, el targetCtx es el del canvas temporal de exportación
-                // Durante la vista previa, es el canvas principal
-                
-                const uiWidth = videoContainer.clientWidth;
-                const uiHeight = videoContainer.clientHeight;
-                
-                const scaleX = targetW / uiWidth;
-                const scaleY = targetH / uiHeight;
-                
-                const rX = blurRect.x * scaleX;
-                const rY = blurRect.y * scaleY;
-                const rW = blurRect.w * scaleX;
-                const rH = blurRect.h * scaleY;
-
-                const margin = 30 * scaleX;
-
-                targetCtx.save();
-                targetCtx.beginPath();
-                targetCtx.rect(rX, rY, rW, rH);
-                targetCtx.clip();
-
-                // Inpainting Logic: Extraemos de los bordes del video original
-                targetCtx.drawImage(sourceVideo, rX, Math.max(0, rY - margin), rW, margin, rX, rY, rW, rH / 2);
-                targetCtx.drawImage(sourceVideo, rX, Math.min(targetH - margin, rY + rH), rW, margin, rX, rY + rH / 2, rW, rH / 2);
-                targetCtx.drawImage(sourceVideo, Math.max(0, rX - margin), rY, margin, rH, rX, rY, rW / 2, rH);
-                targetCtx.drawImage(sourceVideo, Math.min(targetW - margin, rX + rW), rY, margin, rH, rX + rW / 2, rY, rW / 2, rH);
-
-                const intensity = document.getElementById('blur-intensity').value;
-                if (intensity > 0) {
-                    targetCtx.filter = `blur(${intensity * scaleX / 2}px)`;
-                    // Usamos el propio canvas de destino para suavizar el parche ya dibujado
-                    targetCtx.drawImage(targetCtx.canvas, rX, rY, rW, rH, rX, rY, rW, rH);
-                }
-                
-                targetCtx.restore();
-            }
-        }
-
-        // Playback
-        const btnPlayPause = document.getElementById('btn-play-pause');
-        const iconPlay = document.getElementById('icon-play');
-        const iconPause = document.getElementById('icon-pause');
-        const currentTimeDisplay = document.getElementById('current-time');
-
-        btnPlayPause.onclick = () => {
-            if (video.paused) {
-                const start = parseFloat(document.getElementById('trim-start').value);
-                if (video.currentTime >= parseFloat(document.getElementById('trim-end').value) - 0.1) {
-                    video.currentTime = start;
-                }
-                video.play();
-                iconPlay.classList.add('hidden');
-                iconPause.classList.remove('hidden');
-            } else {
-                video.pause();
-                iconPlay.classList.remove('hidden');
-                iconPause.classList.add('hidden');
-            }
-        };
-
-        video.ontimeupdate = () => {
-            const end = parseFloat(document.getElementById('trim-end').value);
-            if (video.currentTime >= end) {
-                video.pause();
-                iconPlay.classList.remove('hidden');
-                iconPause.classList.add('hidden');
-            }
-            currentTimeDisplay.innerText = formatTimeDetailed(video.currentTime);
-        };
-
-        function formatTimeDetailed(seconds) {
-            const h = Math.floor(seconds / 3600);
-            const m = Math.floor((seconds % 3600) / 60);
-            const s = Math.floor(seconds % 60);
-            return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-        }
-
-        // Blur Box Controls
-        const toggleBlur = document.getElementById('toggle-blur');
-        toggleBlur.onclick = () => {
-            isBlurActive = !isBlurActive;
-            if (isBlurActive) {
-                blurBox.classList.remove('hidden');
-                document.getElementById('blur-controls').classList.remove('hidden');
-                toggleBlur.innerText = "Eliminar Máscara";
-                toggleBlur.classList.replace('bg-gray-700', 'bg-blue-600');
-                updateBlurBoxStyle();
-            } else {
-                blurBox.classList.add('hidden');
-                document.getElementById('blur-controls').classList.add('hidden');
-                toggleBlur.innerText = "Activar Área de Clonado";
-                toggleBlur.classList.replace('bg-blue-600', 'bg-gray-700');
-            }
-        };
-
-        function updateBlurBoxStyle() {
-            blurBox.style.left = blurRect.x + 'px';
-            blurBox.style.top = blurRect.y + 'px';
-            blurBox.style.width = blurRect.w + 'px';
-            blurBox.style.height = blurRect.h + 'px';
-        }
-
-        // Movimiento y Redimensionamiento
-        let dragging = false, resizing = false, startX, startY;
-        blurBox.onmousedown = (e) => {
-            if (e.target.className === 'resize-handle') resizing = true;
-            else dragging = true;
-            startX = e.clientX; startY = e.clientY;
-            e.preventDefault();
-        };
-
-        window.onmousemove = (e) => {
-            if (!dragging && !resizing) return;
-            const dx = e.clientX - startX;
-            const dy = e.clientY - startY;
+            // Detectar cabecera
+            const headers = parseCSVLine(lines[0]);
             
-            if (dragging) { 
-                blurRect.x = Math.max(0, Math.min(videoContainer.clientWidth - blurRect.w, blurRect.x + dx));
-                blurRect.y = Math.max(0, Math.min(videoContainer.clientHeight - blurRect.h, blurRect.y + dy));
-            } else if (resizing) { 
-                blurRect.w = Math.max(30, Math.min(videoContainer.clientWidth - blurRect.x, blurRect.w + dx));
-                blurRect.h = Math.max(30, Math.min(videoContainer.clientHeight - blurRect.y, blurRect.h + dy));
-            }
-            startX = e.clientX; startY = e.clientY;
-            updateBlurBoxStyle();
-        };
-        window.onmouseup = () => { dragging = false; resizing = false; };
+            const records = [];
+            for (let i = 1; i < lines.length; i++) {
+                if (!lines[i].trim()) continue;
+                const values = parseCSVLine(lines[i]);
+                if (values.length === 0) continue;
 
-        // EXPORTACIÓN MP4
-        const btnExport = document.getElementById('btn-export');
-        const exportInfo = document.getElementById('export-info');
-        const exportStatusText = document.getElementById('export-status-text');
-        const exportBarHeader = document.getElementById('export-bar-header');
-
-        btnExport.onclick = async () => {
-            if (isExporting) return;
-            isExporting = true;
-            btnExport.disabled = true;
-            exportInfo.classList.replace('hidden', 'flex');
-            
-            const resHeight = parseInt(document.getElementById('export-res').value);
-            const aspect = video.videoWidth / video.videoHeight;
-            const resWidth = Math.round(resHeight * aspect);
-            
-            const exportCanvas = document.createElement('canvas');
-            exportCanvas.width = resWidth;
-            exportCanvas.height = resHeight;
-            const exCtx = exportCanvas.getContext('2d', { alpha: false });
-
-            const start = parseFloat(document.getElementById('trim-start').value);
-            const end = parseFloat(document.getElementById('trim-end').value);
-            const fps = 30;
-            const frameTime = 1 / fps;
-            
-            video.pause();
-            video.currentTime = start;
-
-            let mimeType = 'video/mp4;codecs=h264';
-            if (!MediaRecorder.isTypeSupported(mimeType)) {
-                mimeType = 'video/webm;codecs=vp9';
-            }
-
-            const stream = exportCanvas.captureStream(fps);
-            const recorder = new MediaRecorder(stream, { 
-                mimeType: mimeType, 
-                bitsPerSecond: resHeight >= 1080 ? 20000000 : 10000000 
-            });
-            
-            const chunks = [];
-            recorder.ondataavailable = e => chunks.push(e.data);
-            recorder.onstop = () => {
-                const blob = new Blob(chunks, { type: mimeType.split(';')[0] });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                const ext = mimeType.includes('mp4') ? 'mp4' : 'webm';
-                a.download = `video_final_${resHeight}p.${ext}`;
-                a.click();
-                
-                isExporting = false;
-                btnExport.disabled = false;
-                exportInfo.classList.replace('flex', 'hidden');
-                showToast("Generado con éxito!");
-                requestAnimationFrame(drawLoop);
-            };
-
-            recorder.start();
-
-            let currentExportTime = start;
-            const processNextFrame = async () => {
-                if (currentExportTime >= end) {
-                    setTimeout(() => recorder.stop(), 1000);
-                    return;
-                }
-
-                await new Promise(resolve => {
-                    const onSeeked = () => {
-                        video.removeEventListener('seeked', onSeeked);
-                        setTimeout(resolve, 60);
-                    };
-                    video.addEventListener('seeked', onSeeked);
-                    video.currentTime = currentExportTime;
+                // Crear un objeto mapeando cabeceras con valores
+                const record = {};
+                headers.forEach((header, index) => {
+                    record[header.trim().replace(/^"|"$/g, '')] = values[index] !== undefined ? values[index].trim().replace(/^"|"$/g, '') : '';
                 });
-
-                renderFrame(exCtx, resWidth, resHeight, video);
-                
-                const progress = ((currentExportTime - start) / (end - start)) * 100;
-                exportBarHeader.style.width = `${progress}%`;
-                exportStatusText.innerText = `${Math.round(progress)}%`;
-
-                currentExportTime += frameTime;
-                setTimeout(processNextFrame, 5);
-            };
-
-            processNextFrame();
-        };
-
-        function showToast(msg) {
-            const toast = document.getElementById('toast');
-            document.getElementById('toast-msg').innerText = msg;
-            toast.classList.remove('hidden');
-            setTimeout(() => toast.classList.add('hidden'), 3000);
+                records.push(record);
+            }
+            return records;
         }
 
-        document.getElementById('blur-intensity').oninput = (e) => {
-            document.getElementById('blur-intensity-val').innerText = e.target.value + 'px';
-        };
-        document.getElementById('speed-control').oninput = (e) => {
-            const val = parseFloat(e.target.value);
-            video.playbackRate = val;
-            document.getElementById('speed-val').innerText = val.toFixed(1) + 'x';
-        };
+        // Parsear una línea de CSV respetando comillas
+        function parseCSVLine(line) {
+            const result = [];
+            let current = '';
+            let inQuotes = false;
+            for (let i = 0; i < line.length; i++) {
+                const char = line[i];
+                if (char === '"') {
+                    inQuotes = !inQuotes;
+                } else if (char === ',' && !inQuotes) {
+                    result.push(current);
+                    current = '';
+                } else {
+                    current += char;
+                }
+            }
+            result.push(current);
+            return result;
+        }
+
+        // Formateador de números seguro
+        function parseNumber(val) {
+            if (!val) return 0;
+            const cleanVal = val.replace(/[^\d.-]/g, '');
+            const parsed = parseFloat(cleanVal);
+            return isNaN(parsed) ? 0 : parsed;
+        }
+
+        // Formatear moneda BOB
+        function formatBOB(value) {
+            return new Intl.NumberFormat('es-BO', { style: 'currency', currency: 'BOB' }).format(value);
+        }
+
+        // Formatear números enteros
+        function formatInt(value) {
+            return new Intl.NumberFormat('es-BO').format(value);
+        }
+
+        // Actualizar estadísticas / KPIs
+        function updateKPIs(campaigns) {
+            const activeCampaigns = campaigns.filter(c => c["Entrega de la campaña"] === 'active');
+            
+            // Cantidad de activas
+            document.getElementById('kpiActiveCampaigns').innerText = activeCampaigns.length;
+
+            // Inversión Total (Importe gastado)
+            const totalSpend = campaigns.reduce((acc, curr) => acc + parseNumber(curr["Importe gastado (BOB)"]), 0);
+            document.getElementById('kpiTotalSpend').innerText = formatBOB(totalSpend);
+
+            // Mensajes Totales
+            const totalMessages = campaigns.reduce((acc, curr) => acc + parseNumber(curr["Contactos de mensajes totales"]), 0);
+            document.getElementById('kpiTotalMessages').innerText = formatInt(totalMessages);
+
+            // Nuevos mensajes info text
+            const newMessages = campaigns.reduce((acc, curr) => acc + parseNumber(curr["Nuevos contactos de mensajes"]), 0);
+            document.getElementById('kpiNewMessages').innerText = `${formatInt(newMessages)} nuevos contactos`;
+
+            // Costo promedio por resultado (Costo por resultados promedio ponderado o simple)
+            const campaignsWithCpr = campaigns.filter(c => parseNumber(c["Costo por resultados"]) > 0);
+            if (campaignsWithCpr.length > 0) {
+                // Hacemos el costo promedio ponderado por inversión si es posible
+                const totalCprSpend = campaignsWithCpr.reduce((acc, curr) => acc + parseNumber(curr["Importe gastado (BOB)"]), 0);
+                const totalConversations = campaignsWithCpr.reduce((acc, curr) => acc + parseNumber(curr["Contactos de mensajes totales"]), 0);
+                
+                let avgCpr = 0;
+                if (totalConversations > 0) {
+                    avgCpr = totalCprSpend / totalConversations;
+                } else {
+                    // Fallback a promedio simple
+                    const sumCpr = campaignsWithCpr.reduce((acc, curr) => acc + parseNumber(curr["Costo por resultados"]), 0);
+                    avgCpr = sumCpr / campaignsWithCpr.length;
+                }
+                document.getElementById('kpiAvgCpr').innerText = avgCpr.toFixed(3) + ' BOB';
+            } else {
+                document.getElementById('kpiAvgCpr').innerText = '0.00 BOB';
+            }
+        }
+
+        // Procesar y renderizar los datos
+        function renderData() {
+            const searchQuery = document.getElementById('searchInput').value.toLowerCase();
+            const showActiveOnly = document.getElementById('toggleActiveOnly').checked;
+
+            // Filtrar lista
+            const filteredCampaigns = parsedCampaigns.filter(camp => {
+                // Filtro de estado active
+                const status = camp["Entrega de la campaña"] || '';
+                if (showActiveOnly && status.toLowerCase() !== 'active') {
+                    return false;
+                }
+
+                // Filtro de búsqueda
+                const name = (camp["Nombre de la campaña"] || '').toLowerCase();
+                const delivery = status.toLowerCase();
+                return name.includes(searchQuery) || delivery.includes(searchQuery);
+            });
+
+            // Actualizar indicadores numéricos según el conjunto filtrado actual
+            updateKPIs(filteredCampaigns);
+
+            // Contadores
+            document.getElementById('totalCount').innerText = parsedCampaigns.length;
+            document.getElementById('visibleCount').innerText = filteredCampaigns.length;
+
+            const tableBody = document.getElementById('tableBody');
+            const noDataView = document.getElementById('noDataView');
+            tableBody.innerHTML = '';
+
+            if (filteredCampaigns.length === 0) {
+                noDataView.classList.remove('hidden');
+                return;
+            } else {
+                noDataView.classList.add('hidden');
+            }
+
+            // Renderizar filas de la tabla
+            filteredCampaigns.forEach(camp => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-900/40 transition border-b border-slate-800/45 text-slate-300";
+
+                const isCampActive = (camp["Entrega de la campaña"] || '').toLowerCase() === 'active';
+                const costPerResult = parseNumber(camp["Costo por resultados"]);
+                const isOptimalCost = costPerResult > 0 && costPerResult < 1.0;
+
+                tr.innerHTML = `
+                    <td class="py-4 px-5 font-medium text-white max-w-xs truncate" title="${camp["Nombre de la campaña"] || ''}">
+                        <div class="flex flex-col gap-0.5">
+                            <span class="truncate">${camp["Nombre de la campaña"] || 'Sin nombre'}</span>
+                            <span class="text-xs text-slate-500 font-mono flex items-center gap-1">
+                                <i data-lucide="calendar" class="w-3 h-3"></i>
+                                ${camp["Inicio del informe"] || 'Sin fecha'}
+                            </span>
+                        </div>
+                    </td>
+                    <td class="py-4 px-4 text-center">
+                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${isCampActive ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-slate-800 text-slate-400 border border-slate-700'}">
+                            <span class="w-1.5 h-1.5 rounded-full ${isCampActive ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'}"></span>
+                            ${camp["Entrega de la campaña"] || 'inactive'}
+                        </span>
+                    </td>
+                    <td class="py-4 px-4 text-right">
+                        <div class="flex flex-col items-end">
+                            <span class="font-semibold text-slate-200">${formatBOB(parseNumber(camp["Presupuesto del conjunto de anuncios"]))}</span>
+                            <span class="text-xxs text-slate-500 lowercase">${camp["Tipo de presupuesto del conjunto de anuncios"] || ''}</span>
+                        </div>
+                    </td>
+                    <td class="py-4 px-4 text-right font-medium text-amber-400">
+                        ${formatBOB(parseNumber(camp["Importe gastado (BOB)"]))}
+                    </td>
+                    <td class="py-4 px-4 text-right text-xs">
+                        ${formatInt(parseNumber(camp["Impresiones"]))}
+                    </td>
+                    <td class="py-4 px-4 text-right text-xs text-slate-400">
+                        ${formatInt(parseNumber(camp["Alcance"]))}
+                    </td>
+                    <td class="py-4 px-4 text-right font-semibold text-white">
+                        ${formatInt(parseNumber(camp["Contactos de mensajes totales"]))}
+                    </td>
+                    <td class="py-4 px-4 text-right text-xs text-slate-400">
+                        ${formatInt(parseNumber(camp["Nuevos contactos de mensajes"]))}
+                    </td>
+                    <td class="py-4 px-4 text-right">
+                        <div class="inline-flex flex-col items-end">
+                            <span class="font-bold ${isOptimalCost ? 'text-emerald-400' : 'text-purple-400'}">
+                                ${costPerResult > 0 ? formatBOB(costPerResult) : 'N/D'}
+                            </span>
+                            <span class="text-[10px] text-slate-500 truncate max-w-[120px]" title="${camp["Indicador de resultado"] || ''}">
+                                ${camp["Indicador de resultado"] ? 'conversación iniciada' : ''}
+                            </span>
+                        </div>
+                    </td>
+                `;
+                tableBody.appendChild(tr);
+            });
+
+            // Re-inicializar iconos para las nuevas filas generadas
+            initIcons();
+        }
+
+        // Cargar datos por defecto al iniciar
+        function loadDefaultData() {
+            parsedCampaigns = parseCSV(defaultCSVData);
+            renderData();
+        }
+
+        // Eventos de usuario
+        document.getElementById('csvFileInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                const text = evt.target.result;
+                parsedCampaigns = parseCSV(text);
+                renderData();
+            };
+            reader.readAsText(file);
+        });
+
+        document.getElementById('searchInput').addEventListener('input', renderData);
+        document.getElementById('toggleActiveOnly').addEventListener('change', renderData);
+        document.getElementById('btnReset').addEventListener('click', () => {
+            document.getElementById('searchInput').value = '';
+            document.getElementById('toggleActiveOnly').checked = true;
+            loadDefaultData();
+        });
+
+        // Inicio del panel
+        window.addEventListener('DOMContentLoaded', () => {
+            loadDefaultData();
+            initIcons();
+        });
     </script>
 </body>
 </html>
